@@ -3,30 +3,29 @@ const path = require('path');
 const basePath = 'http://localhost:8080/mdwiki.html#!./out/'
 const trackedFiles = ['characters.md', 'locations.md', 'items.md', 'creatures.md']
 const ignoredWords = ['the', 'of', 'grey', 'cloak', 'black', 'moon', 'shadow', 'hunter', 'slave', 'rope', 'dagger', 'map', 'key', 'tunic', 'shoes'].map(value => { return value.toLowerCase() })
-
-const source = "./story";
 const mdFiles = []
+let origRootPath = ''
 
-getFiles(source)
-// console.log(mdFiles)
-
-const links = createLinks(mdFiles)
-// console.log('link map', links)
-
-transformFiles(mdFiles, links)
-
-
+function linkFiles(source) {
+    origRootPath = source
+    getFiles(source)
+    // console.log(mdFiles)
+    const links = createLinks(mdFiles)
+    // console.log('link map', links)
+    transformFiles(mdFiles, links)
+}
 
 function getFiles(baseFolder) {
+    console.log('reading files from', baseFolder)
     const files = fs.readdirSync(baseFolder)
     files.forEach(function (file, index) {
         const fromPath = path.join(baseFolder, file)
         const stat = fs.statSync(fromPath)
-        if (stat.isFile()) {
+        if (stat.isFile() && !fromPath.endsWith('.gitignore')) {
             const fileInfo = { name: file, path: fromPath }
             mdFiles.push(fileInfo)
         }
-        else if (stat.isDirectory()) {
+        else if (stat.isDirectory() && fromPath.indexOf('.git') == -1) {
             getFiles(fromPath)
         }
     })
@@ -44,7 +43,7 @@ function createLinks(mdFiles) {
                 const cleanedName = match[1].toLowerCase().replace(/[^a-zA-Z0-9 ]/g, '')
                 let link = { name: cleanedName, path: path, variants: [] }
                 const words = cleanedName.split(' ')
-                if (words.length > 1){
+                if (words.length > 1) {
                     words.forEach(word => {
                         if (word.length > 0 && ignoredWords.indexOf(word) == -1) {
                             link.variants.push(word)
@@ -76,7 +75,7 @@ function transformFiles(mdFiles, links) {
         })
 
         //write the file to the out folder
-        const path = './out/' + file.path
+        const path = './out/' + file.path.substring(origRootPath.length+1)
         console.log('writing file', path)
         ensureDirectoryExistence(path)
         fs.writeFile(path, converted, function (err) { })
@@ -85,7 +84,7 @@ function transformFiles(mdFiles, links) {
 }
 
 function replaceWord(data, key, path) {
-    const regex = new RegExp("(?<!#\s)(?<!\\[)(?<!#)(?<!#.+)("+key+")","gi");  
+    const regex = new RegExp("(?<!#\s)(?<!\\[)(?<!#)(?<!#.+)(" + key + ")", "gi");
     return data.replace(regex, '[$1](' + path + ')')
 }
 
@@ -98,3 +97,4 @@ function ensureDirectoryExistence(filePath) {
     fs.mkdirSync(dirname);
 }
 
+exports.linkFiles = linkFiles
